@@ -2,5 +2,39 @@
 name = "p-speed"
 version = "0.1.0"
 edition = "2024"
+description = "Benchmark SPL Token vs Token-2022 on Solana — real on-chain compute unit comparison"
+authors = ["anmol0b"]
+license = "MIT"
+repository = "https://github.com/anmol0b/p-speed"
+homepage = "https://github.com/anmol0b/p-speed"
+readme = "README.md"
+keywords = ["solana", "token", "benchmark", "spl", "cli"]
+categories = ["command-line-utilities"]
+exclude = [".github/", "results.json"]
+
+[[bin]]
+name = "p-speed"
+path = "src/main.rs"
 
 [dependencies]
+# Solana core
+solana-sdk = "1.18"
+solana-client = "1.18"
+solana-transaction-status = "1.18"
+
+# SPL Token (supports passing a custom program ID)
+spl-token = { version = "4.0", features = ["no-entrypoint"] }
+spl-associated-token-account = { version = "3.0", features = ["no-entrypoint"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Output
+colored = "2"
+comfy-table = "7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Utilities
+anyhow = "1"
+shellexpand = "3"
