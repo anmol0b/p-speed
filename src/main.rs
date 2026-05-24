@@ -80,10 +80,6 @@ fn main() -> Result<()> {
             if let Some(path) = &output {
                 export_json(&result, path)?;
             }
-
-            println!();
-            println!("  {} Share your results: {}", "🚀", "@anmol0b".cyan().bold());
-            println!();
         }
     }
 
