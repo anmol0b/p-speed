@@ -18,6 +18,7 @@ pub fn print_report(result: &RunResult) {
     println!("{}", "  ═══════════════════════════════════════════════════════════════".cyan());
     println!();
 
+    // ── Comparison table ─────────────────────────────────────────────────────
     let mut table = Table::new();
     table
         .load_preset(UTF8_FULL)
@@ -34,24 +35,21 @@ pub fn print_report(result: &RunResult) {
                 .add_attribute(Attribute::Bold).fg(Color::Yellow),
         ]);
 
+    // Mint creation
     add_row(
         &mut table, "Mint creation",
         SplBaseline::MINT_CREATION_CU,
         result.mint_creation.compute_units,
     );
 
-    add_row(
-        &mut table, "ATA creation",
-        SplBaseline::ATA_CREATION_CU,
-        result.ata_creation.compute_units,
-    );
-
+    // Mint tokens
     add_row(
         &mut table, "Mint tokens",
         SplBaseline::MINT_TO_CU,
         result.mint_to.compute_units,
     );
 
+    // Transfer average
     let avg_cu = result.avg_transfer_cu();
     let pct    = improvement_pct(SplBaseline::TRANSFER_CU as f64, avg_cu);
     table.add_row(vec![
@@ -64,6 +62,7 @@ pub fn print_report(result: &RunResult) {
         pct_cell(pct),
     ]);
 
+    // Transfer min / max
     table.add_row(vec![
         Cell::new("Transfer  (min / max)"),
         Cell::new(""),
@@ -74,6 +73,7 @@ pub fn print_report(result: &RunResult) {
         Cell::new(""),
     ]);
 
+    // Total fees
     table.add_row(vec![
         Cell::new("Total fees (all TXs)"),
         Cell::new("—").set_alignment(CellAlignment::Right),
@@ -85,6 +85,7 @@ pub fn print_report(result: &RunResult) {
 
     println!("{table}");
 
+    // ── Headline summary ──────────────────────────────────────────────────────
     let transfer_pct = improvement_pct(SplBaseline::TRANSFER_CU as f64, avg_cu);
     println!();
     println!("  {}", "Summary:".bold());
@@ -109,6 +110,7 @@ pub fn print_report(result: &RunResult) {
         format!("{:.6}", result.total_fee_sol()).green()
     );
 
+    // ── Disclaimer ────────────────────────────────────────────────────────────
     println!();
     println!("  {}", "Note:".dimmed());
     println!("  {}",
@@ -116,6 +118,7 @@ pub fn print_report(result: &RunResult) {
     println!("  {}",
         "P-Token column is real on-chain data from transaction.meta.compute_units_consumed.".dimmed());
 
+    // ── Explorer links ────────────────────────────────────────────────────────
     let cluster = if result.rpc_url.contains("devnet")  { "?cluster=devnet" }
                   else if result.rpc_url.contains("mainnet") { "" }
                   else { "?cluster=custom" };
@@ -135,6 +138,8 @@ pub fn print_report(result: &RunResult) {
     println!("  {} Program : {}", "ℹ".cyan(), result.program_id.dimmed());
     println!("{}", "  ═══════════════════════════════════════════════════════════════".cyan());
 }
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn add_row(table: &mut Table, label: &str, old_cu: u64, new_cu: u64) {
     let pct = improvement_pct(old_cu as f64, new_cu as f64);
@@ -179,6 +184,9 @@ pub fn fmt_num(n: u64) -> String {
     out.chars().rev().collect()
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tests
+// ─────────────────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,6 +199,7 @@ mod tests {
 
     #[test]
     fn pct_cell_positive_is_green() {
+        // just check it doesn't panic and pct math is right
         let pct = improvement_pct(4645.0, 76.0);
         assert!(pct > 98.0);
     }

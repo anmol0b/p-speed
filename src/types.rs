@@ -78,14 +78,6 @@ pub fn improvement_pct(old: f64, new: f64) -> f64 {
     if old == 0.0 { return 0.0; }
     ((old - new) / old) * 100.0
 }
-pub struct SplBaseline;
-
-impl SplBaseline {
-    pub const MINT_CREATION_CU: u64 = 2_967;
-    pub const ATA_CREATION_CU:  u64 = 4_188;
-    pub const MINT_TO_CU:       u64 = 2_921;
-    pub const TRANSFER_CU:      u64 = 4_645;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Unit tests — pure logic, no RPC, runs offline instantly
@@ -193,4 +185,17 @@ mod tests {
         let pct = improvement_pct(4645.0, 76.0);
         assert!(pct > 95.0 && pct < 99.5, "Expected ~98.4%, got {:.1}%", pct);
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Old SPL Token baseline — publicly documented CU numbers
+// Source: https://spl.solana.com / Anza SIMD-0266 announcement
+// These are the numbers P-Token replaces.
+// ─────────────────────────────────────────────────────────────────────────────
+pub struct SplBaseline;
+
+impl SplBaseline {
+    pub const MINT_CREATION_CU: u64 = 2_967;
+    pub const MINT_TO_CU:       u64 = 2_921;
+    pub const TRANSFER_CU:      u64 = 4_645; // per transfer, the headline number
 }

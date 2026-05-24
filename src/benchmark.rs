@@ -9,13 +9,14 @@ use solana_sdk::{
 
 use crate::{
     config::Config,
-    token_ops::{create_ata, create_mint, mint_tokens, send_and_confirm, sleep_ms, transfer_tokens},
+    token_ops::{create_ata, create_mint, mint_tokens, sleep_ms, transfer_tokens},
     types::RunResult,
 };
 
 const MINT_DECIMALS:   u8  = 6;
-const MINT_AMOUNT:     u64 = 1_000_000_000;
-const TRANSFER_AMOUNT: u64 = 1_000;
+const MINT_AMOUNT:     u64 = 1_000_000_000; // 1,000 tokens (6 decimals)
+const TRANSFER_AMOUNT: u64 = 1_000;          // 0.001 tokens per transfer
+
 
 pub fn ensure_funded(client: &RpcClient, config: &Config) -> Result<()> {
     let pubkey  = config.payer.pubkey();
@@ -40,6 +41,7 @@ pub fn ensure_funded(client: &RpcClient, config: &Config) -> Result<()> {
     Ok(())
 }
 
+
 /// Run one full benchmark pass:
 ///   create mint → create ATAs → mint tokens → N transfers
 /// Returns a RunResult with real on-chain CU for every transaction.
@@ -58,14 +60,17 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
     println!("  Transfers: {}", config.transfer_count);
     println!("  Program  : {}", crate::config::TOKEN_PROGRAM_ID.dimmed());
     println!();
+
     print!("  Checking balance...  ");
     ensure_funded(&client, config)?;
+
     print!("  Warming up RPC...    ");
     let _ = client.get_slot();
     sleep_ms(800);
     println!("{}", "✓".green());
 
     let token_program_id = config.token_program_id();
+
     print!("  [1/4] Creating mint...        ");
     let mint_kp = Keypair::new();
     let mint_metrics = create_mint(
@@ -77,6 +82,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
         mint_metrics.elapsed_ms,
     );
     sleep_ms(400);
+
     print!("  [2/4] Creating source ATA...  ");
     let (source_ata, ata_metrics) = create_ata(
         &client, &config.payer, &config.payer.pubkey(),
@@ -88,22 +94,17 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
         ata_metrics.elapsed_ms,
     );
     sleep_ms(400);
-    
+
     let recipient = Keypair::new();
-    {
-        let rent = client.get_minimum_balance_for_rent_exemption(165)?;
-        let ix = solana_sdk::system_instruction::transfer(
-            &config.payer.pubkey(),
-            &recipient.pubkey(),
-            rent + 20_000, // rent + fee buffer
-        );
-        send_and_confirm(&client, &[ix], &[&config.payer], &config.payer)?;
-    }
     let (dest_ata, _) = create_ata(
-        &client, &recipient, &recipient.pubkey(),
-        &mint_kp.pubkey(), &token_program_id,
+        &client,
+        &config.payer,       // payer covers rent + fee
+        &recipient.pubkey(), // recipient owns the ATA
+        &mint_kp.pubkey(),
+        &token_program_id,
     )?;
     sleep_ms(400);
+
     print!("  [3/4] Minting tokens...       ");
     let mint_to_metrics = mint_tokens(
         &client, &config.payer, &mint_kp.pubkey(),
@@ -115,6 +116,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
         mint_to_metrics.elapsed_ms,
     );
     sleep_ms(400);
+
     println!("  [4/4] Running {} transfers...", config.transfer_count);
     let mut transfers = Vec::with_capacity(config.transfer_count);
 
