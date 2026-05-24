@@ -41,8 +41,8 @@ pub struct RunResult {
     pub transfers:     Vec<TxMetrics>,
 }
 
+#[allow(dead_code)]
 impl RunResult {
-    #[allow(dead_code)]
     pub fn avg_transfer_cu(&self) -> f64 {
         if self.transfers.is_empty() { return 0.0; }
         let sum: u64 = self.transfers.iter().map(|t| t.compute_units).sum();
