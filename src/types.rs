@@ -78,6 +78,14 @@ pub fn improvement_pct(old: f64, new: f64) -> f64 {
     if old == 0.0 { return 0.0; }
     ((old - new) / old) * 100.0
 }
+pub struct SplBaseline;
+
+impl SplBaseline {
+    pub const MINT_CREATION_CU: u64 = 2_967;
+    pub const ATA_CREATION_CU:  u64 = 4_188;
+    pub const MINT_TO_CU:       u64 = 2_921;
+    pub const TRANSFER_CU:      u64 = 4_645;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Unit tests — pure logic, no RPC, runs offline instantly

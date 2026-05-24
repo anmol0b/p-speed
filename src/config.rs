@@ -41,7 +41,7 @@ pub const DEFAULT_RPC: &str = DEVNET_RPC;
 /// We set this high so TXs never fail.
 /// The actual usage is read from transaction.meta.compute_units_consumed.
 pub const CU_LIMIT: u32 = 400_000;
-
+#[allow(dead_code)]
 pub struct Config {
     pub rpc_url:        String,
     pub payer:          Keypair,
