@@ -19,7 +19,7 @@ use crate::{
 #[derive(Parser)]
 #[command(
     name    = "p-speed",
-    version = "0.2.0",
+    version = "0.1.4",
     author  = "anmol0b",
     about   = "Benchmark real P-Token (SIMD-0266) compute units on Solana",
     long_about = "Benchmark real P-Token (SIMD-0266) compute units on Solana.
@@ -71,7 +71,12 @@ enum Commands {
     },
 
     /// Measure BOTH sides live — local validator (SPL) vs devnet (P-Token)
+    ///
     /// Both columns are real on-chain numbers. Nothing hardcoded.
+    ///
+    /// Setup (run once in a separate terminal, keep it open):
+    ///   solana-test-validator \\
+    ///     --deactivate-feature ptokFjwyJtrwCa9Kgo9xoDS59V4QccBGEaRFnRPnSdP
     ///
     /// Setup: solana-test-validator --deactivate-feature ptokFjwyJtrwCa9Kgo9xoDS59V4QccBGEaRFnRPnSdP
     Compare {

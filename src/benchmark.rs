@@ -17,11 +17,29 @@ const MINT_DECIMALS:   u8  = 6;
 const MINT_AMOUNT:     u64 = 1_000_000_000; // 1,000 tokens (6 decimals)
 const TRANSFER_AMOUNT: u64 = 1_000;          // 0.001 tokens per transfer
 
+// ── Balance / airdrop ────────────────────────────────────────────────────────
 
 pub fn ensure_funded(client: &RpcClient, config: &Config) -> Result<()> {
     let pubkey  = config.payer.pubkey();
     let balance = client.get_balance(&pubkey)
-        .map_err(|e| anyhow!("get_balance: {}", e))?;
+        .map_err(|e| {
+            let msg = e.to_string();
+            // Detect local validator not running
+            if msg.contains("Connection refused") || msg.contains("tcp connect error") {
+                anyhow!(
+                    "{}\n\n  {}\n  {}\n  {}\n  {}\n  {}\n  {}\n",
+                    "Local validator is not running.".red().bold(),
+                    "Start it in a new terminal:".bold(),
+                    "solana-test-validator \\".cyan(),
+                    "  --deactivate-feature ptokFjwyJtrwCa9Kgo9xoDS59V4QccBGEaRFnRPnSdP".cyan(),
+                    "",
+                    "Then run p-speed compare again.".bold(),
+                    "Tip: keep the validator terminal open while benchmarking.".dimmed(),
+                )
+            } else {
+                anyhow!("get_balance: {}", e)
+            }
+        })?;
 
     let sol = balance as f64 / LAMPORTS_PER_SOL as f64;
 
@@ -41,6 +59,7 @@ pub fn ensure_funded(client: &RpcClient, config: &Config) -> Result<()> {
     Ok(())
 }
 
+// ── Main benchmark ────────────────────────────────────────────────────────────
 
 /// Run one full benchmark pass:
 ///   create mint → create ATAs → mint tokens → N transfers
@@ -51,6 +70,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
         CommitmentConfig::confirmed(),
     );
 
+    // ── Header ───────────────────────────────────────────────────────────────
     println!();
     println!("{}", "  P-Speed".bold().cyan());
     println!("{}", "  ═══════════════════════════════════════════════".cyan());
@@ -61,9 +81,11 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
     println!("  Program  : {}", crate::config::TOKEN_PROGRAM_ID.dimmed());
     println!();
 
+    // ── Fund wallet ───────────────────────────────────────────────────────────
     print!("  Checking balance...  ");
     ensure_funded(&client, config)?;
 
+    // ── Warmup ────────────────────────────────────────────────────────────────
     print!("  Warming up RPC...    ");
     let _ = client.get_slot();
     sleep_ms(800);
@@ -71,6 +93,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
 
     let token_program_id = config.token_program_id();
 
+    // ── Step 1: Create mint ───────────────────────────────────────────────────
     print!("  [1/4] Creating mint...        ");
     let mint_kp = Keypair::new();
     let mint_metrics = create_mint(
@@ -83,6 +106,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
     );
     sleep_ms(400);
 
+    // ── Step 2: Create source ATA (payer owns it) ─────────────────────────────
     print!("  [2/4] Creating source ATA...  ");
     let (source_ata, ata_metrics) = create_ata(
         &client, &config.payer, &config.payer.pubkey(),
@@ -95,6 +119,9 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
     );
     sleep_ms(400);
 
+    // ── Create dest ATA ───────────────────────────────────────────────────────
+    //    Payer creates + funds the dest ATA on behalf of a throwaway recipient.
+    //    No need to fund recipient separately — payer covers rent + fee.
     let recipient = Keypair::new();
     let (dest_ata, _) = create_ata(
         &client,
@@ -105,6 +132,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
     )?;
     sleep_ms(400);
 
+    // ── Step 3: Mint tokens into source ATA ───────────────────────────────────
     print!("  [3/4] Minting tokens...       ");
     let mint_to_metrics = mint_tokens(
         &client, &config.payer, &mint_kp.pubkey(),
@@ -117,6 +145,7 @@ pub fn run_benchmark(config: &Config) -> Result<RunResult> {
     );
     sleep_ms(400);
 
+    // ── Step 4: N transfers ───────────────────────────────────────────────────
     println!("  [4/4] Running {} transfers...", config.transfer_count);
     let mut transfers = Vec::with_capacity(config.transfer_count);
 
