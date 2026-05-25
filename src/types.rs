@@ -3,45 +3,34 @@ use serde::{Deserialize, Serialize};
 /// Metrics captured for a single confirmed transaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TxMetrics {
-    /// Transaction signature (base58) — paste into Explorer to verify
-    pub signature: String,
-    /// Compute units actually consumed — read from transaction.meta.compute_units_consumed
+    pub signature:     String,
     pub compute_units: u64,
-    /// Wall-clock time from send → confirmation in milliseconds
-    pub elapsed_ms: u128,
-    /// Fee paid in lamports
-    pub fee_lamports: u64,
+    pub elapsed_ms:    u128,
+    pub fee_lamports:  u64,
 }
 
 impl TxMetrics {
     #[allow(dead_code)]
-
     pub fn fee_sol(&self) -> f64 {
         self.fee_lamports as f64 / 1_000_000_000.0
     }
 }
 
-/// All metrics for one full benchmark run (mint + ATA + mint_to + N transfers).
-/// On devnet this is P-Token (SIMD-0266 feature gate is active).
-/// On a local validator with the gate disabled this is old SPL Token.
+/// All metrics for one full benchmark run.
+/// On devnet/mainnet  → P-Token bytecode  (feature gate ON)
+/// On local validator → old SPL bytecode  (feature gate OFF)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RunResult {
-    /// Human-readable label, e.g. "P-Token (devnet)" or "SPL Token (local)"
-    pub label: String,
-    /// The RPC endpoint used
-    pub rpc_url: String,
-    /// The token program ID used (same address on both — runtime swaps the bytecode)
-    pub program_id: String,
-    /// Number of transfers run
+    pub label:          String,
+    pub rpc_url:        String,
+    pub program_id:     String,
     pub transfer_count: usize,
-
-    pub mint_creation: TxMetrics,
-    pub ata_creation:  TxMetrics,
-    pub mint_to:       TxMetrics,
-    pub transfers:     Vec<TxMetrics>,
+    pub mint_creation:  TxMetrics,
+    pub ata_creation:   TxMetrics,
+    pub mint_to:        TxMetrics,
+    pub transfers:      Vec<TxMetrics>,
 }
 
-#[allow(dead_code)]
 impl RunResult {
     pub fn avg_transfer_cu(&self) -> f64 {
         if self.transfers.is_empty() { return 0.0; }
@@ -57,6 +46,7 @@ impl RunResult {
         self.transfers.iter().map(|t| t.compute_units).max().unwrap_or(0)
     }
 
+    #[allow(dead_code)]
     pub fn avg_transfer_ms(&self) -> f64 {
         if self.transfers.is_empty() { return 0.0; }
         let sum: u128 = self.transfers.iter().map(|t| t.elapsed_ms).sum();
@@ -75,15 +65,23 @@ impl RunResult {
     }
 }
 
-/// Utility: compute improvement percentage between old and new value.
-/// Positive = new is better (fewer CU). Negative = regression.
+/// Two live RunResults side by side — both columns real, nothing hardcoded.
+/// spl  = local validator run (feature gate OFF) → old SPL bytecode
+/// ptoken = devnet/mainnet run (feature gate ON) → P-Token bytecode
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CompareResult {
+    pub spl:    RunResult,
+    pub ptoken: RunResult,
+}
+
+/// Percentage improvement: positive = new uses fewer CU (better).
 pub fn improvement_pct(old: f64, new: f64) -> f64 {
     if old == 0.0 { return 0.0; }
     ((old - new) / old) * 100.0
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Unit tests — pure logic, no RPC, runs offline instantly
+// Tests
 // ─────────────────────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
@@ -108,8 +106,6 @@ mod tests {
         }
     }
 
-    // ── TxMetrics ──────────────────────────────────────────────────────────
-
     #[test]
     fn fee_sol_zero() { assert_eq!(make_metrics(100, 200, 0).fee_sol(), 0.0); }
 
@@ -125,8 +121,6 @@ mod tests {
         assert!((m.fee_sol() - 5_000.0 / 1e9).abs() < 1e-12);
     }
 
-    // ── RunResult aggregation ──────────────────────────────────────────────
-
     #[test]
     fn avg_cu_single() {
         assert!((make_run(vec![300], 5000).avg_transfer_cu() - 300.0).abs() < f64::EPSILON);
@@ -134,7 +128,6 @@ mod tests {
 
     #[test]
     fn avg_cu_multiple() {
-        // (100+200+300)/3 = 200
         assert!((make_run(vec![100, 200, 300], 5000).avg_transfer_cu() - 200.0).abs() < f64::EPSILON);
     }
 
@@ -150,7 +143,6 @@ mod tests {
 
     #[test]
     fn total_fee_counts_all_txs() {
-        // mint + ata + mint_to + 2 transfers = 5 txs
         let r = make_run(vec![100, 200], 5_000);
         assert_eq!(r.total_fee_lamports(), 5 * 5_000);
     }
@@ -162,20 +154,17 @@ mod tests {
         assert!((r.total_fee_sol() - expected).abs() < 1e-12);
     }
 
-    // ── improvement_pct ────────────────────────────────────────────────────
+    #[test]
+    fn improvement_half() { assert!((improvement_pct(100.0, 50.0) - 50.0).abs() < f64::EPSILON); }
 
     #[test]
-    fn improvement_half()     { assert!((improvement_pct(100.0, 50.0)  - 50.0).abs() < f64::EPSILON); }
+    fn improvement_full() { assert!((improvement_pct(100.0, 0.0) - 100.0).abs() < f64::EPSILON); }
 
     #[test]
-    fn improvement_full()     { assert!((improvement_pct(100.0, 0.0)   - 100.0).abs() < f64::EPSILON); }
-
-    #[test]
-    fn improvement_none()     { assert!((improvement_pct(100.0, 100.0) - 0.0).abs() < f64::EPSILON); }
+    fn improvement_none() { assert!((improvement_pct(100.0, 100.0) - 0.0).abs() < f64::EPSILON); }
 
     #[test]
     fn improvement_regression() {
-        // new > old → negative %
         assert!((improvement_pct(100.0, 150.0) - (-50.0)).abs() < f64::EPSILON);
     }
 
@@ -184,21 +173,7 @@ mod tests {
 
     #[test]
     fn improvement_realistic_p_token() {
-        // Old SPL ~4645 CU, P-Token ~76 CU → ~98.4% improvement
-        let pct = improvement_pct(4645.0, 76.0);
-        assert!(pct > 95.0 && pct < 99.5, "Expected ~98.4%, got {:.1}%", pct);
+        let pct = improvement_pct(4645.0, 255.0);
+        assert!(pct > 93.0 && pct < 96.0, "Expected ~94.5%, got {:.1}%", pct);
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Old SPL Token baseline — publicly documented CU numbers
-// Source: https://spl.solana.com / Anza SIMD-0266 announcement
-// These are the numbers P-Token replaces.
-// ─────────────────────────────────────────────────────────────────────────────
-pub struct SplBaseline;
-
-impl SplBaseline {
-    pub const MINT_CREATION_CU: u64 = 2_967;
-    pub const MINT_TO_CU:       u64 = 2_921;
-    pub const TRANSFER_CU:      u64 = 4_645; // per transfer, the headline number
 }
