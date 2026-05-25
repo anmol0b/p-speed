@@ -43,12 +43,12 @@ pub const DEFAULT_RPC: &str = DEVNET_RPC;
 pub const CU_LIMIT: u32 = 400_000;
 #[allow(dead_code)]
 pub struct Config {
-    pub rpc_url:        String,
-    pub payer:          Keypair,
-    pub commitment:     CommitmentConfig,
+    pub rpc_url: String,
+    pub payer: Keypair,
+    pub commitment: CommitmentConfig,
     pub transfer_count: usize,
-    pub output_json:    Option<String>,
-    pub label:          String, // e.g. "P-Token (devnet)"
+    pub output_json: Option<String>,
+    pub label: String, // e.g. "P-Token (devnet)"
 }
 
 impl Config {
@@ -60,17 +60,21 @@ impl Config {
 /// Resolve a short alias ("devnet", "mainnet", "local") or a full URL.
 pub fn resolve_rpc(input: &str) -> String {
     match input.to_lowercase().as_str() {
-        "devnet"  | "dev"   => DEVNET_RPC.to_string(),
-        "mainnet" | "main"  => MAINNET_RPC.to_string(),
-        "local"   | "localhost" | "localnet" => LOCALNET_RPC.to_string(),
-        other => other.to_string(), // treat as a full URL
+        "devnet" | "dev" => DEVNET_RPC.to_string(),
+        "mainnet" | "main" => MAINNET_RPC.to_string(),
+        "local" | "localhost" | "localnet" => LOCALNET_RPC.to_string(),
+        _ => input.to_string(), // treat as a full URL
     }
 }
 
 /// Build a human-readable label from the RPC URL.
 pub fn label_from_rpc(rpc: &str) -> String {
-    if rpc.contains("devnet")    { return "P-Token (devnet)".to_string(); }
-    if rpc.contains("mainnet")   { return "P-Token (mainnet)".to_string(); }
+    if rpc.contains("devnet") {
+        return "P-Token (devnet)".to_string();
+    }
+    if rpc.contains("mainnet") {
+        return "P-Token (mainnet)".to_string();
+    }
     if rpc.contains("127.0.0.1") || rpc.contains("localhost") {
         return "SPL Token (local validator)".to_string();
     }
@@ -81,8 +85,9 @@ pub fn label_from_rpc(rpc: &str) -> String {
 /// or generate a fresh throwaway keypair.
 pub fn load_or_generate_keypair(path: Option<&str>) -> Result<Keypair> {
     match path {
-        Some(p) => read_keypair_file(p)
-            .map_err(|e| anyhow!("Failed to read keypair from {}: {}", p, e)),
+        Some(p) => {
+            read_keypair_file(p).map_err(|e| anyhow!("Failed to read keypair from {}: {}", p, e))
+        }
         None => {
             let default_path = shellexpand::tilde("~/.config/solana/id.json").to_string();
             if std::path::Path::new(&default_path).exists() {
@@ -119,9 +124,9 @@ mod tests {
 
     #[test]
     fn resolve_rpc_aliases() {
-        assert_eq!(resolve_rpc("devnet"),  DEVNET_RPC);
+        assert_eq!(resolve_rpc("devnet"), DEVNET_RPC);
         assert_eq!(resolve_rpc("mainnet"), MAINNET_RPC);
-        assert_eq!(resolve_rpc("local"),   LOCALNET_RPC);
+        assert_eq!(resolve_rpc("local"), LOCALNET_RPC);
     }
 
     #[test]
@@ -140,3 +145,4 @@ mod tests {
         assert!(label_from_rpc(LOCALNET_RPC).contains("local"));
     }
 }
+
